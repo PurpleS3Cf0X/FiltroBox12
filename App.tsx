@@ -1,11 +1,13 @@
+
 import React, { useState } from 'react';
-import { Shield, Settings, Zap, UploadCloud, Terminal, Server, FileText, CheckCircle, Home, Sliders, LogOut } from 'lucide-react';
+import { Shield, Settings, Zap, UploadCloud, Terminal, Server, FileText, CheckCircle, Home, Sliders, LogOut, Activity } from 'lucide-react';
 import { analyzeText } from './services/piiService';
-import { AnalysisResult, ViewState, Rule, PiiType, SensitivityLevel } from './types';
+import { AnalysisResult, ViewState, Rule, PiiType, SensitivityLevel, OllamaSettings, CloudSettings } from './types';
 import { AnalysisView } from './components/AnalysisView';
 import { RulesConfig } from './components/RulesConfig';
 import { StatsDashboard } from './components/StatsDashboard';
 import { SettingsView } from './components/SettingsView';
+import { HealthView } from './components/HealthView';
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>('LANDING');
@@ -14,6 +16,18 @@ const App: React.FC = () => {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [engine, setEngine] = useState<'GEMINI' | 'OLLAMA'>('GEMINI');
   const [showToast, setShowToast] = useState(false);
+
+  // Cloud (Gemini) Configuration State
+  const [cloudSettings, setCloudSettings] = useState<CloudSettings>({
+    apiKey: ''
+  });
+
+  // Ollama Configuration State
+  const [ollamaSettings, setOllamaSettings] = useState<OllamaSettings>({
+    url: 'http://localhost:11434',
+    model: '', // Will be selected by user
+    apiKey: ''
+  });
 
   // Lifted Rules State for persistence
   const [rules, setRules] = useState<Rule[]>([
@@ -88,8 +102,7 @@ const App: React.FC = () => {
     // Simulate delay if network is too fast, to show the loader animation
     const minDelay = new Promise(resolve => setTimeout(resolve, 1500));
     
-    // Pass enabled rules to service (mock implementation for now)
-    const analysisPromise = analyzeText(inputText);
+    const analysisPromise = analyzeText(inputText, engine, cloudSettings, ollamaSettings);
     
     const [_, analysisResult] = await Promise.all([minDelay, analysisPromise]);
     
@@ -172,6 +185,17 @@ const App: React.FC = () => {
                       <Sliders className="w-4 h-4" />
                       Filtering Rules
                   </button>
+                  <button 
+                    onClick={() => setView('HEALTH')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                        view === 'HEALTH' 
+                        ? 'bg-primary/10 text-primary' 
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                      <Activity className="w-4 h-4" />
+                      System Health
+                  </button>
               </div>
           </div>
 
@@ -195,7 +219,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="flex-1 overflow-hidden">
                       <p className="text-xs font-medium text-white truncate">John Developer</p>
-                      <p className="text-[10px] text-gray-500 truncate">Admin Workspace</p>
+                      <p className="text-xs text-gray-500 truncate">Admin Workspace</p>
                   </div>
                   <LogOut className="w-3 h-3 text-gray-500 cursor-pointer hover:text-white" />
               </div>
@@ -212,6 +236,7 @@ const App: React.FC = () => {
                 {view === 'ANALYSIS' && 'Analysis Results'}
                 {view === 'RULES' && 'Configuration / Rules'}
                 {view === 'SETTINGS' && 'System Configuration'}
+                {view === 'HEALTH' && 'System Telemetry'}
             </h2>
 
             <div className="flex items-center gap-4">
@@ -227,9 +252,9 @@ const App: React.FC = () => {
                     <button 
                         onClick={() => setEngine('OLLAMA')}
                         className={`text-xs font-semibold transition-colors ${engine === 'OLLAMA' ? 'text-accent' : 'text-gray-500'}`}
-                        title="Local Docker Instance (Demo)"
+                        title="Local Docker Instance"
                     >
-                        OLLAMA
+                        OLLAMA {ollamaSettings.model && `(${ollamaSettings.model})`}
                     </button>
                 </div>
             </div>
@@ -346,8 +371,19 @@ const App: React.FC = () => {
                 />
             )}
 
+            {view === 'HEALTH' && (
+                <HealthView ollamaSettings={ollamaSettings} />
+            )}
+
             {view === 'SETTINGS' && (
-                <SettingsView />
+                <SettingsView 
+                    ollamaSettings={ollamaSettings} 
+                    onUpdateSettings={setOllamaSettings}
+                    cloudSettings={cloudSettings}
+                    onUpdateCloudSettings={setCloudSettings}
+                    activeEngine={engine}
+                    onUpdateEngine={setEngine}
+                />
             )}
         </div>
       </main>

@@ -47,4 +47,20 @@ export interface Rule {
   level: SensitivityLevel;
 }
 
-export type ViewState = 'LANDING' | 'ANALYSIS' | 'RULES' | 'DASHBOARD' | 'SETTINGS';
+export interface CloudSettings {
+  apiKey: string;
+}
+
+export interface OllamaSettings {
+  url: string;
+  model: string;
+  apiKey: string;
+}
+
+export interface OllamaModel {
+  name: string;
+  modified_at: string;
+  size: number;
+}
+
+export type ViewState = 'LANDING' | 'ANALYSIS' | 'RULES' | 'DASHBOARD' | 'SETTINGS' | 'HEALTH';

@@ -1,11 +1,8 @@
 
 import { GoogleGenAI, Type, Schema } from "@google/genai";
-import { AnalysisResult, PiiEntity, PiiType, SensitivityLevel } from "../types";
+import { AnalysisResult, PiiEntity, PiiType, SensitivityLevel, CloudSettings, OllamaSettings } from "../types";
 
-// Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-// Define the schema for the AI response
+// Define the schema for the AI response (Gemini)
 const piiSchema: Schema = {
   type: Type.OBJECT,
   properties: {
@@ -29,42 +26,64 @@ const piiSchema: Schema = {
   required: ["entities", "riskScore", "summary", "classification"]
 };
 
-export const analyzeText = async (text: string): Promise<AnalysisResult> => {
+// Prompt for Ollama (JSON Mode)
+const OLLAMA_SYSTEM_PROMPT = `You are a privacy protection engine. Analyze the text for Personally Identifiable Information (PII).
+Return ONLY a valid JSON object with this exact structure:
+{
+  "summary": "string",
+  "classification": "string",
+  "riskScore": number (0-100),
+  "entities": [
+    { "text": "string", "type": "string", "sensitivity": "HIGH"|"MEDIUM"|"LOW", "replacement": "string" }
+  ]
+}
+Do not include markdown formatting or explanations.`;
+
+export const analyzeText = async (
+  text: string, 
+  engine: 'GEMINI' | 'OLLAMA',
+  cloudSettings?: CloudSettings,
+  ollamaSettings?: OllamaSettings
+): Promise<AnalysisResult> => {
   const startTime = performance.now();
 
   try {
-    const model = "gemini-2.5-flash"; // Using flash for speed
-    
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: `You are a privacy protection engine. Analyze the following text for Personally Identifiable Information (PII) and sensitive data.
-      
-      1. Classify the type of document/data (e.g., JSON Dump, Python Script, Customer Email).
-      2. Provide a short summary of the content.
-      3. Detect sensitive entities like: Names, Emails, Phone Numbers, Credit Cards, API Keys, IP Addresses, and Locations.
-      
-      Return a JSON object.
-      
-      Text to analyze:
-      """
-      ${text}
-      """`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: piiSchema,
-        temperature: 0.1, // Low temperature for deterministic extraction
-      }
-    });
+    let data: any;
 
-    const responseText = response.text || "{}";
-    const data = JSON.parse(responseText);
+    if (engine === 'OLLAMA') {
+       if (!ollamaSettings?.url || !ollamaSettings?.model) {
+           throw new Error("Ollama settings incomplete");
+       }
+       data = await analyzeWithOllama(text, ollamaSettings);
+    } else {
+       // Gemini Engine
+       const apiKey = cloudSettings?.apiKey || process.env.API_KEY;
+       if (!apiKey) throw new Error("No Gemini API Key provided");
+
+       const ai = new GoogleGenAI({ apiKey });
+       const model = "gemini-2.5-flash";
+
+       const response = await ai.models.generateContent({
+        model: model,
+        contents: `Analyze the following text for PII.\n\nText:\n"""\n${text}\n"""`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: piiSchema,
+          temperature: 0.1,
+          systemInstruction: "You are a privacy protection engine. Classify the document, summarize it, and extract PII entities."
+        }
+      });
+      const responseText = response.text || "{}";
+      data = JSON.parse(responseText);
+    }
     
+    // Normalize entities
     const entities: PiiEntity[] = (data.entities || []).map((e: any, index: number) => ({
       id: `entity-${index}-${Date.now()}`,
       text: e.text,
       type: mapStringToPiiType(e.type),
       level: mapStringToSensitivity(e.sensitivity),
-      start: 0, // We will calculate this in the frontend logic for highlighting
+      start: 0, 
       end: 0,
       replacement: e.replacement || `[REDACTED ${e.type}]`
     }));
@@ -72,7 +91,6 @@ export const analyzeText = async (text: string): Promise<AnalysisResult> => {
     // Simple sanitization logic (replace instances)
     let sanitized = text;
     entities.forEach(entity => {
-      // Global replace for this demo, usually would be index based
       sanitized = sanitized.split(entity.text).join(entity.replacement);
     });
 
@@ -90,21 +108,56 @@ export const analyzeText = async (text: string): Promise<AnalysisResult> => {
 
   } catch (error) {
     console.error("Analysis failed:", error);
-    // Fallback or re-throw
     return {
       originalText: text,
       sanitizedText: text,
       entities: [],
       riskScore: 0,
       processingTime: 0,
-      summary: "Analysis failed due to an error.",
+      summary: `Analysis failed: ${(error as Error).message}`,
       classification: "Error"
     };
   }
 };
 
+const analyzeWithOllama = async (text: string, settings: OllamaSettings) => {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+    };
+    if (settings.apiKey) {
+        headers['Authorization'] = `Bearer ${settings.apiKey}`;
+    }
+
+    const response = await fetch(`${settings.url.replace(/\/$/, '')}/api/generate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+            model: settings.model,
+            prompt: `${OLLAMA_SYSTEM_PROMPT}\n\nText to Analyze:\n${text}`,
+            stream: false,
+            format: "json", 
+            options: {
+                temperature: 0.1
+            }
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`Ollama API Error: ${response.statusText}`);
+    }
+
+    const json = await response.json();
+    try {
+        return JSON.parse(json.response);
+    } catch (e) {
+        console.error("Failed to parse Ollama JSON response", json.response);
+        throw new Error("Invalid JSON response from Ollama");
+    }
+};
+
 // Helper functions
 const mapStringToPiiType = (str: string): PiiType => {
+  if (!str) return PiiType.CUSTOM;
   const upper = str.toUpperCase();
   if (upper.includes("EMAIL")) return PiiType.EMAIL;
   if (upper.includes("PHONE")) return PiiType.PHONE;
@@ -118,6 +171,7 @@ const mapStringToPiiType = (str: string): PiiType => {
 };
 
 const mapStringToSensitivity = (str: string): SensitivityLevel => {
+  if (!str) return SensitivityLevel.LOW;
   const upper = str.toUpperCase();
   if (upper === 'HIGH') return SensitivityLevel.HIGH;
   if (upper === 'MEDIUM') return SensitivityLevel.MEDIUM;
