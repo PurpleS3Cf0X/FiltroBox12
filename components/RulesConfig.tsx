@@ -407,4 +407,12 @@ export const RulesConfig: React.FC<RulesConfigProps> = ({ rules, onToggle, onAdd
             
             <div className="px-6 py-4 bg-gray-900/30 border-t border-gray-800 flex items-center justify-between text-xs text-gray-500">
                 <div>Showing {filteredRules.length} rules</div>
-                <div className="flex items
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+                    Gemini Engine Synced
+                </div>
+            </div>
+       </div>
+    </div>
+  );
+};
