@@ -11,6 +11,11 @@
 **FiltroBox12ai** is a modern, aesthetic, and robust middleware platform designed to prevent data leakage. It acts as a secure gateway between your sensitive internal data and public AI services (like OpenAI, Claude, or Gemini). By analyzing, highlighting, and redacting Personally Identifiable Information (PII) locally or via a controlled environment, it ensures developers maintain full sovereignty over their data.
 
 **Thank You JESUS**
+
+
+<img width="1688" height="816" alt="Screenshot 2025-12-05 at 2 29 47 PM" src="https://github.com/user-attachments/assets/8d56f52a-fe7d-468e-b463-dfb4722665e3" />
+
+
 ---
 
 ## 🚀 Key Features
