@@ -1,0 +1,5 @@
+{
+  "name": "FiltroBox12ai",
+  "description": "A privacy-first filtering platform that sanitizes sensitive data before it reaches external AI services.",
+  "requestFramePermissions": []
+}
