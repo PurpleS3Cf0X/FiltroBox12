@@ -9,6 +9,11 @@
 ![Stack](https://img.shields.io/badge/stack-React%20%7C%20Tailwind%20%7C%20Gemini-blueviolet)
 
 **FiltroBox12ai** is a modern, aesthetic, and robust middleware platform designed to prevent data leakage. It acts as a secure gateway between your sensitive internal data and public AI services (like OpenAI, Claude, or Gemini). By analyzing, highlighting, and redacting Personally Identifiable Information (PII) locally or via a controlled environment, it ensures developers maintain full sovereignty over their data.
+<img width="1688" height="816" alt="Screenshot 2025-12-05 at 2 29 47 PM" src="https://github.com/user-attachments/assets/b79fb0a4-6206-40a3-9b79-0e4a809be053" />
+
+
+<img width="1680" height="804" alt="Screenshot 2025-12-05 at 2 42 32 PM" src="https://github.com/user-attachments/assets/d5ab9190-0cc2-4cc0-a9a8-e13139ddef5c" />
+<img width="1678" height="808" alt="Screenshot 2025-12-05 at 3 03 47 PM" src="https://github.com/user-attachments/assets/12e17e61-7ba4-48b0-8ebd-c8c0f4637fbf" />
 
 ---
 
